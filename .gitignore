@@ -1,0 +1,23 @@
+# Local examples supplied for corpus validation.
+/ACV EXAMPLES/
+/ACV_EXAMPLES/
+
+# Local environment and dependency overrides.
+.env
+pubspec_overrides.yaml
+
+# Editors and operating systems.
+.DS_Store
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Dart and Flutter outputs.
+/.dart_tool/
+/build/
+/coverage/
+/pubspec.lock
+/doc/
+**/docs/api/

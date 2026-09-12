@@ -1,5 +1,10 @@
 # 📰 AcvKit changelog
 
+## v0.2.0
+Released on September 12, 2026.
+
+* **BREAKING REFACTOR**: Delegate tone curve evaluation and serialization to `pscore`. ([#4156de0](https://github.com/focale-editor/acvkit/commit/4156de0))
+
 ## v0.1.1
 Released on September 12, 2026.
 

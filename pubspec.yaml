@@ -1,6 +1,6 @@
 name: acvkit
 description: A pure Dart codec for Adobe Photoshop ACV curves files.
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/focale-editor/acvkit
 repository: https://github.com/focale-editor/acvkit
 

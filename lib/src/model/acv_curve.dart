@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:pscore/pscore.dart';
+
 /// Identifies which ACV section supplied a curve.
 enum AcvCurveSection {
   /// Curve stored directly after the file header.
@@ -9,47 +11,11 @@ enum AcvCurveSection {
   supplemental,
 }
 
-/// Selects how values between ACV control points are calculated.
-enum AcvInterpolation {
-  /// Joins adjacent control points with straight segments.
-  linear,
+/// Backward-compatible name for the shared interpolation strategy.
+typedef AcvInterpolation = PsToneCurveInterpolation;
 
-  /// Uses a natural cubic spline with zero endpoint curvature.
-  naturalCubic,
-}
-
-/// One input-to-output control point from an ACV curve.
-final class AcvPoint {
-  /// Horizontal input coordinate as stored in the file.
-  final int input;
-
-  /// Vertical output coordinate as stored in the file.
-  final int output;
-
-  /// Creates one immutable control point.
-  const AcvPoint({
-    required this.input,
-    required this.output,
-  });
-
-  /// Whether both coordinates use the published 0 through 255 range.
-  bool get isInOfficialRange => input >= 0 && input <= 255 && output >= 0 && output <= 255;
-
-  /// Input coordinate normalized to the conventional 0 through 1 range.
-  double get normalizedInput => input / 255;
-
-  /// Output coordinate normalized to the conventional 0 through 1 range.
-  double get normalizedOutput => output / 255;
-
-  @override
-  bool operator ==(Object other) => other is AcvPoint && other.input == input && other.output == output;
-
-  @override
-  int get hashCode => Object.hash(input, output);
-
-  @override
-  String toString() => 'AcvPoint(input: $input, output: $output)';
-}
+/// Backward-compatible name for a shared Photoshop tone-curve point.
+typedef AcvPoint = PsToneCurvePoint;
 
 /// An immutable Photoshop tone curve and its source metadata.
 final class AcvCurve {
@@ -132,17 +98,10 @@ final class AcvCurve {
   bool get isOfficial => declaredPointCount >= 2 && declaredPointCount <= 19 && isComplete && points.every((point) => point.isInOfficialRange) && hasStrictlyIncreasingInputs;
 
   /// Whether every control point maps its input to the same output.
-  bool get isIdentity => points.isNotEmpty && points.every((point) => point.input == point.output);
+  bool get isIdentity => _toneCurve.isIdentity;
 
   /// Whether input coordinates are strictly increasing in source order.
-  bool get hasStrictlyIncreasingInputs {
-    for (int index = 1; index < points.length; index++) {
-      if (points[index].input <= points[index - 1].input) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool get hasStrictlyIncreasingInputs => _toneCurve.hasStrictlyIncreasingInputs;
 
   /// Evaluates a raw 0 through 255 [input] coordinate.
   ///
@@ -153,11 +112,11 @@ final class AcvCurve {
     double input, {
     AcvInterpolation interpolation = AcvInterpolation.naturalCubic,
     bool clampOutput = true,
-  }) {
-    final _AcvCurveEvaluator evaluator = _AcvCurveEvaluator(points: points);
-    final double value = evaluator.evaluate(input, interpolation);
-    return clampOutput ? value.clamp(0, 255).toDouble() : value;
-  }
+  }) => _toneCurve.evaluate(
+    input,
+    interpolation: interpolation,
+    clampOutput: clampOutput,
+  );
 
   /// Evaluates an [input] normalized to the 0 through 1 range.
   double evaluateNormalized(
@@ -177,35 +136,23 @@ final class AcvCurve {
     int size = 256,
     AcvInterpolation interpolation = AcvInterpolation.naturalCubic,
     bool clampOutput = true,
-  }) {
-    if (size <= 0) {
-      throw ArgumentError.value(size, 'size', 'Must be positive');
-    }
-    final _AcvCurveEvaluator evaluator = _AcvCurveEvaluator(points: points);
-    final Float64List result = Float64List(size);
-    for (int index = 0; index < size; index++) {
-      final double input = size == 1 ? 0 : index * 255 / (size - 1);
-      final double value = evaluator.evaluate(input, interpolation);
-      result[index] = clampOutput ? value.clamp(0, 255).toDouble() : value;
-    }
-    return result;
-  }
+  }) => _toneCurve.toLookupTable(
+    size: size,
+    interpolation: interpolation,
+    clampOutput: clampOutput,
+  );
 
   /// Builds an evenly sampled 8-bit lookup table.
   Uint8List toUint8LookupTable({
     int size = 256,
     AcvInterpolation interpolation = AcvInterpolation.naturalCubic,
-  }) {
-    final Float64List values = toLookupTable(
-      size: size,
-      interpolation: interpolation,
-    );
-    final Uint8List result = Uint8List(values.length);
-    for (int index = 0; index < values.length; index++) {
-      result[index] = values[index].round();
-    }
-    return result;
-  }
+  }) => _toneCurve.toUint8LookupTable(
+    size: size,
+    interpolation: interpolation,
+  );
+
+  /// Shared format-neutral curve semantics for these points.
+  PsToneCurve get _toneCurve => PsToneCurve(points: points);
 
   /// Returns an editable replacement with optional channel and point changes.
   ///
@@ -225,104 +172,5 @@ final class AcvCurve {
       points: replacementPoints,
       recordData: null,
     );
-  }
-}
-
-/// Efficiently evaluates one validated sequence of control points.
-final class _AcvCurveEvaluator {
-  /// Control points in strictly increasing input order.
-  final List<AcvPoint> _points;
-
-  /// Natural-spline second derivatives, calculated only when needed.
-  List<double>? _secondDerivatives;
-
-  /// Creates an evaluator after checking that interpolation is well-defined.
-  _AcvCurveEvaluator({
-    required List<AcvPoint> points,
-  }) : _points = points {
-    if (points.isEmpty) {
-      throw StateError('An empty ACV curve cannot be evaluated');
-    }
-    for (int index = 1; index < points.length; index++) {
-      if (points[index].input <= points[index - 1].input) {
-        throw StateError('ACV curve inputs must be strictly increasing before evaluation');
-      }
-    }
-  }
-
-  /// Evaluates [input] with the selected [interpolation].
-  double evaluate(double input, AcvInterpolation interpolation) {
-    if (_points.length == 1 || input <= _points.first.input) {
-      return _points.first.output.toDouble();
-    }
-    if (input >= _points.last.input) {
-      return _points.last.output.toDouble();
-    }
-    final int upperIndex = _findUpperIndex(input);
-    final int lowerIndex = upperIndex - 1;
-    return switch (interpolation) {
-      AcvInterpolation.linear => _evaluateLinear(input, lowerIndex, upperIndex),
-      AcvInterpolation.naturalCubic => _evaluateNaturalCubic(input, lowerIndex, upperIndex),
-    };
-  }
-
-  /// Locates the first point whose input is greater than [input].
-  int _findUpperIndex(double input) {
-    int lower = 1;
-    int upper = _points.length - 1;
-    while (lower < upper) {
-      final int middle = (lower + upper) ~/ 2;
-      if (_points[middle].input > input) {
-        upper = middle;
-      } else {
-        lower = middle + 1;
-      }
-    }
-    return lower;
-  }
-
-  /// Linearly interpolates between the two surrounding point indices.
-  double _evaluateLinear(double input, int lowerIndex, int upperIndex) {
-    final AcvPoint lower = _points[lowerIndex];
-    final AcvPoint upper = _points[upperIndex];
-    final double ratio = (input - lower.input) / (upper.input - lower.input);
-    return lower.output + ratio * (upper.output - lower.output);
-  }
-
-  /// Evaluates the natural cubic segment between two surrounding points.
-  double _evaluateNaturalCubic(double input, int lowerIndex, int upperIndex) {
-    final AcvPoint lower = _points[lowerIndex];
-    final AcvPoint upper = _points[upperIndex];
-    final double width = (upper.input - lower.input).toDouble();
-    final double lowerWeight = (upper.input - input) / width;
-    final double upperWeight = (input - lower.input) / width;
-    final List<double> derivatives = _secondDerivatives ??= _calculateSecondDerivatives();
-    return lowerWeight * lower.output +
-        upperWeight * upper.output +
-        ((lowerWeight * lowerWeight * lowerWeight - lowerWeight) * derivatives[lowerIndex] + (upperWeight * upperWeight * upperWeight - upperWeight) * derivatives[upperIndex]) * width * width / 6;
-  }
-
-  /// Calculates natural-spline second derivatives for every control point.
-  List<double> _calculateSecondDerivatives() {
-    final int count = _points.length;
-    final List<double> derivatives = List<double>.filled(count, 0);
-    if (count <= 2) {
-      return derivatives;
-    }
-    final List<double> temporary = List<double>.filled(count - 1, 0);
-    for (int index = 1; index < count - 1; index++) {
-      final double previousWidth = (_points[index].input - _points[index - 1].input).toDouble();
-      final double nextWidth = (_points[index + 1].input - _points[index].input).toDouble();
-      final double totalWidth = previousWidth + nextWidth;
-      final double ratio = previousWidth / totalWidth;
-      final double denominator = ratio * derivatives[index - 1] + 2;
-      derivatives[index] = (ratio - 1) / denominator;
-      final double slopeDifference = (_points[index + 1].output - _points[index].output) / nextWidth - (_points[index].output - _points[index - 1].output) / previousWidth;
-      temporary[index] = (6 * slopeDifference / totalWidth - ratio * temporary[index - 1]) / denominator;
-    }
-    for (int index = count - 2; index >= 0; index--) {
-      derivatives[index] = derivatives[index] * derivatives[index + 1] + temporary[index];
-    }
-    return derivatives;
   }
 }

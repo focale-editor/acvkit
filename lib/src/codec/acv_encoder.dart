@@ -80,11 +80,7 @@ final class AcvEncoder extends Converter<AcvFile, List<int>> {
       writer.writeUint16(curve.channelIndex);
     }
     writer.writeUint16(curve.declaredPointCount);
-    for (final AcvPoint point in curve.points) {
-      writer
-        ..writeUint16(point.output)
-        ..writeUint16(point.input);
-    }
+    PsToneCurveCodec.writePoints(writer, curve.points);
   }
 
   /// Checks that every emitted integer and marker fits its binary field.

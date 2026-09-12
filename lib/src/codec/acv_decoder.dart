@@ -303,21 +303,13 @@ final class AcvDecoder extends Converter<List<int>, AcvFile> {
         section: section,
       );
     }
-    final List<AcvPoint> points = [];
-    bool hasOutOfRangeCoordinate = false;
-    bool hasUnorderedInput = false;
-    for (int pointIndex = 0; pointIndex < pointCount; pointIndex++) {
-      final int output = reader.readUint16();
-      final int input = reader.readUint16();
-      if (output > 255 || input > 255) {
-        hasOutOfRangeCoordinate = true;
-      }
-      if (points.isNotEmpty && input <= points.last.input) {
-        hasUnorderedInput = true;
-      }
-      points.add(AcvPoint(input: input, output: output));
-    }
-    if (hasOutOfRangeCoordinate) {
+    final List<AcvPoint> points = PsToneCurveCodec.readPoints(
+      reader,
+      count: pointCount,
+      maxPoints: context.options.maxPointsPerCurve,
+    );
+    final PsToneCurve toneCurve = PsToneCurve(points: points);
+    if (points.any((point) => !point.isInOfficialRange)) {
       context.issue(
         'Curve contains coordinates outside the published 0 through 255 range',
         countOffset + 2,
@@ -326,7 +318,7 @@ final class AcvDecoder extends Converter<List<int>, AcvFile> {
         section: section,
       );
     }
-    if (hasUnorderedInput) {
+    if (!toneCurve.hasStrictlyIncreasingInputs) {
       context.issue(
         'Curve input coordinates are not strictly increasing',
         countOffset + 2,

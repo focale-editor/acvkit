@@ -3,6 +3,7 @@ library;
 
 export 'package:pscore/pscore.dart';
 
+export 'src/codec/acv_codec.dart';
 export 'src/codec/acv_decoder.dart';
 export 'src/codec/acv_encoder.dart';
 export 'src/model/acv_curve.dart';

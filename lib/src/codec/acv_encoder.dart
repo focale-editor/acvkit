@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:acvkit/src/model/acv_curve.dart';
@@ -6,7 +7,21 @@ import 'package:acvkit/src/model/acv_options.dart';
 import 'package:pscore/pscore.dart';
 
 /// Encodes immutable ACV documents into Adobe Photoshop curve files.
-abstract final class AcvEncoder {
+///
+/// The configured instance is a one-shot [Converter] for complete in-memory
+/// files. Use [encode] when conversion options are supplied per call.
+final class AcvEncoder extends Converter<AcvFile, List<int>> {
+  /// Options applied by [convert].
+  final AcvEncodeOptions options;
+
+  /// Creates a reusable encoder with fixed [options].
+  const AcvEncoder({
+    this.options = const AcvEncodeOptions(),
+  });
+
+  @override
+  Uint8List convert(AcvFile input) => encode(input, options: options);
+
   /// First published ACV container version.
   static const int _legacyVersion = 1;
 

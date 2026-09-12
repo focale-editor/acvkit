@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:acvkit/src/model/acv_curve.dart';
@@ -6,7 +7,24 @@ import 'package:acvkit/src/model/acv_options.dart';
 import 'package:pscore/pscore.dart';
 
 /// Decodes Adobe Photoshop ACV tone-curve files.
-abstract final class AcvDecoder {
+///
+/// The configured instance is a one-shot [Converter] for complete in-memory
+/// files. Use [decode] when conversion options are supplied per call.
+final class AcvDecoder extends Converter<List<int>, AcvFile> {
+  /// Options applied by [convert].
+  final AcvDecodeOptions options;
+
+  /// Creates a reusable decoder with fixed [options].
+  const AcvDecoder({
+    this.options = const AcvDecodeOptions(),
+  });
+
+  @override
+  AcvFile convert(List<int> input) => decode(
+    input is Uint8List ? input : Uint8List.fromList(input),
+    options: options,
+  );
+
   /// First published ACV container version.
   static const int _legacyVersion = 1;
 

@@ -60,6 +60,22 @@ await File('edited.acv').writeAsBytes(encoded);
 
 Strict encoding is the default. It requires published versions, matching counts, 2–19 points per curve, coordinates from 0 through 255, and strictly increasing inputs. `AcvEncodeMode.permissive` is intended for reconstruction and format research; it writes any values that fit their binary fields.
 
+## Reusable `dart:convert` API
+
+`AcvCodec` implements `Codec<AcvFile, List<int>>` and keeps decoding and encoding policies together in one immutable value:
+
+```dart
+const AcvCodec codec = AcvCodec(
+  decodeOptions: AcvDecodeOptions(mode: AcvDecodeMode.strict),
+  encodeOptions: AcvEncodeOptions(mode: AcvEncodeMode.strict),
+);
+
+final AcvFile file = codec.decode(bytes);
+final Uint8List encoded = codec.encode(file);
+```
+
+The `List<int>` binary type allows composition with standard codecs such as `base64`; direct `encode` calls still return `Uint8List`. `AcvEncoder` and `AcvDecoder` are also configurable `Converter` implementations. Every conversion consumes or produces one complete in-memory ACV file rather than an incremental byte stream.
+
 ## Strict, tolerant, and bounded decoding
 
 Tolerant decoding is the default. It returns safely decoded earlier data, records an `AcvWarning`, and retains the undecodable suffix whenever no reliable record boundary remains. Strict mode turns the first compatibility issue into an `AcvFormatException`:

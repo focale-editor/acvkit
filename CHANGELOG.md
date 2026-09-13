@@ -1,5 +1,10 @@
 # 📰 AcvKit changelog
 
+## v0.2.1
+Released on September 13, 2026.
+
+* **DOCS**: Added contributing guide, package screenshot, and pubspec metadata. ([#85f43b4](https://github.com/focale-editor/acvkit/commit/85f43b4))
+
 ## v0.2.0
 Released on September 12, 2026.
 

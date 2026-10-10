@@ -1,5 +1,11 @@
 # 📰 AcvKit changelog
 
+## v0.3.0
+Released on October 10, 2026.
+
+* **BREAKING CHORE**: Updated pscore dependency to 0.2.0. ([#511551c](https://github.com/focale-editor/acvkit/commit/511551c))
+* **REFACTOR**: Shared curve warnings and exceptions with pscore. ([#3d1a7b9](https://github.com/focale-editor/acvkit/commit/3d1a7b9))
+
 ## v0.2.2
 Released on October 5, 2026.
 

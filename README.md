@@ -6,8 +6,6 @@
 
 AcvKit is a pure Dart codec for Adobe Photoshop Curves (`.acv`) files. It reads and writes both published container layouts, exposes immutable editable control points, evaluates curves without Flutter or native code, and safely handles untrusted or forward-compatible input.
 
-The package is designed for editors such as Focale. Focale integration is intentionally kept outside this initial package change.
-
 ## Supported data
 
 - Version 4 files with source-ordered composite and channel curves.

@@ -1,4 +1,5 @@
 import 'package:acvkit/src/model/acv_curve.dart';
+import 'package:pscore/pscore.dart';
 
 /// Controls whether recoverable ACV compatibility issues stop decoding.
 enum AcvDecodeMode {
@@ -77,13 +78,7 @@ final class AcvEncodeOptions {
 }
 
 /// Describes a recoverable compatibility issue found while decoding.
-final class AcvWarning {
-  /// Human-readable explanation of the compatibility issue.
-  final String message;
-
-  /// Absolute byte offset associated with the issue, when known.
-  final int? offset;
-
+final class AcvWarning extends PsWarning {
   /// Zero-based curve position within its section, when known.
   final int? curveIndex;
 
@@ -95,63 +90,47 @@ final class AcvWarning {
 
   /// Creates a warning with optional source context.
   const AcvWarning({
-    required this.message,
-    this.offset,
+    required super.message,
+    super.offset,
     this.curveIndex,
     this.channelIndex,
     this.section,
   });
 
   @override
-  String toString() {
-    final String location = offset == null ? '' : ' at byte $offset';
+  String get typeName => 'AcvWarning';
+
+  @override
+  String get context {
     final int? currentCurveIndex = curveIndex;
     final AcvCurveSection? currentSection = section;
     final String curve = currentCurveIndex == null ? '' : ' in curve ${currentCurveIndex + 1}';
     final String channel = channelIndex == null ? '' : ' for channel $channelIndex';
     final String sourceSection = currentSection == null ? '' : ' of ${currentSection.name}';
-    return 'AcvWarning$location$curve$channel$sourceSection: $message';
+    return '$curve$channel$sourceSection';
   }
 }
 
 /// Reports malformed, truncated, unsupported, or unsafe ACV input.
-final class AcvFormatException implements FormatException {
-  /// Human-readable explanation of the malformed data.
-  @override
-  final String message;
-
-  /// Input associated with the failure, when useful.
-  @override
-  final Object? source;
-
-  /// Absolute byte offset associated with the failure, when known.
-  @override
-  final int? offset;
-
-  /// Creates an ACV format error at an optional absolute byte [offset].
+final class AcvFormatException extends PsFormatException {
+  /// Creates an error at an optional absolute byte [offset].
   const AcvFormatException({
-    required this.message,
-    this.source,
-    this.offset,
+    required super.message,
+    super.source,
+    super.offset,
   });
 
   @override
-  String toString() {
-    final String location = offset == null ? '' : ' at byte $offset';
-    return 'AcvFormatException$location: $message';
-  }
+  String get typeName => 'AcvFormatException';
 }
 
 /// Reports model data that cannot be represented by the requested ACV output.
-final class AcvWriteException implements Exception {
-  /// Explains why encoding failed.
-  final String message;
-
+final class AcvWriteException extends PsWriteException {
   /// Creates an encoding error with a user-facing [message].
   const AcvWriteException({
-    required this.message,
+    required super.message,
   });
 
   @override
-  String toString() => 'AcvWriteException: $message';
+  String get typeName => 'AcvWriteException';
 }
